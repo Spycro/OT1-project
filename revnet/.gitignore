@@ -3,3 +3,5 @@ data/
 runs/
 torch/
 launch_*.sh
+sbatch_cmd.sh
+slurm-*.out
