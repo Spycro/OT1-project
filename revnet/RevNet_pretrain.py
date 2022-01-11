@@ -107,7 +107,7 @@ def generate_rotated_image_batch(batch_images):
 def train(model):
     criterion = CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
-    for epoch in range(200):
+    for epoch in range(15):
         print(
             f"Epoch {epoch+1} training"
         )
