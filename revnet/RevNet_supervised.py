@@ -150,7 +150,7 @@ supervised_model.classifier = nn.Sequential(
                 nn.ReLU(),
                 nn.Linear(in_features=128, out_features=10),
                 nn.ReLU(),
-            )
+            ).to(device)
 
 print("Started training...")
 train(supervised_model)
