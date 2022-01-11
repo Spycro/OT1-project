@@ -149,6 +149,10 @@ supervised_model.classifier = nn.Sequential(
                 nn.ReLU(),
             ).to(device)
 
+# Freeze features paramers
+for param in supervised_model.features.parameters():
+    param.requires_grad = False
+
 print("Started training...")
 train(supervised_model)
 print("Finished training")
