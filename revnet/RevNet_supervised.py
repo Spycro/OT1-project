@@ -98,6 +98,9 @@ def train(model):
             images = images.to(device)
             targets = targets.to(device)
 
+            print(images.device)
+            print(targets.device)
+
             optimizer.zero_grad()
             y = model(images)
             loss = criterion(y, targets)
