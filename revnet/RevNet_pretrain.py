@@ -47,46 +47,6 @@ writer = SummaryWriter()
 
 rotations_labels = [ 0, 90, 180, 270 ]
 
-class Model(nn.Module):
-    def __init__(self):
-        super(Model, self).__init__()
-
-        # AlexNet
-        # Image initiale de taille 96x96 avec 3 channels (r, g, b)
-        self.features = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=11, stride=4, padding=2),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-            nn.Conv2d(in_channels=64, out_channels=192, kernel_size=5, padding=2),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-            nn.Conv2d(in_channels=192, out_channels=384, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=384, out_channels=256, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-        )
-
-        self.classifier = nn.Sequential(
-            nn.Dropout(p=0.5),
-            nn.Linear(in_features=256 * 2 * 2, out_features=512),
-            nn.ReLU(),
-            nn.Dropout(p=0.5),
-            nn.Linear(in_features=512, out_features=128),
-            nn.ReLU(),
-            nn.Linear(in_features=128, out_features=16),
-            nn.ReLU(),
-            nn.Linear(in_features=16, out_features=4),
-        )
-
-    def forward(self, x):
-        x = self.features(x)
-        x = torch.flatten(x, 1)
-        x = self.classifier(x)
-        return x
-
 def generate_rotated_image_batch(batch_images):
 
     images = []
@@ -160,9 +120,32 @@ def train(model):
             f"- Validation Loss: {valid_loss}"
         )
 
+# Image initiale de taille 96x96 avec 3 channels (r, g, b)
+model = torch.hub.load('pytorch/vision:v0.10.0', 'resnet18', pretrained=False)
+
+# Suppression du classifier original de ResNet
+_, old_classifier =  model._modules.popitem()
+classifier_input_size = old_classifier.in_features
+
+# Last layer size of ResNet should be 512
+assert(classifier_input_size == 512)
+
+model.fc = nn.Sequential(
+    nn.Dropout(p=0.5),
+    nn.Linear(in_features=512, out_features=256),
+    nn.ReLU(),
+    nn.Dropout(p=0.5),
+    nn.Linear(in_features=256, out_features=128),
+    nn.ReLU(),
+    nn.Linear(in_features=128, out_features=16),
+    nn.ReLU(),
+    nn.Linear(in_features=16, out_features=4),
+)
+
+resnet = model.to(device)
+
 print("Started training...")
-pretrained_model = Model().to(device)
-train(pretrained_model)
-torch.save(pretrained_model, "pretrained_revnet.pth")
+train(model)
+torch.save(model, "pretrained_revnet.pth")
 print("Finished training")
 writer.close()
