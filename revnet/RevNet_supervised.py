@@ -37,7 +37,7 @@ train_set, valid_set = torch.utils.data.random_split(
     labeled_train_set, [labeled_train_size, valid_size]
 )
 
-BATCH_SIZE = 256
+BATCH_SIZE = 64
 
 train_dataloader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
 test_dataloader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)

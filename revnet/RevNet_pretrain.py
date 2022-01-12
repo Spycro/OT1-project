@@ -37,7 +37,9 @@ train_set, valid_set = torch.utils.data.random_split(
     unlabeled_train_set, [unlabeled_train_size, valid_size]
 )
 
-BATCH_SIZE = 256
+# Will be multiplied by 4 because of the 4 rotations
+# 128 => 512
+BATCH_SIZE = 128
 
 train_dataloader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
 test_dataloader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
@@ -67,7 +69,8 @@ def generate_rotated_image_batch(batch_images):
 def train(model):
     criterion = CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
-    for epoch in range(15):
+
+    for epoch in range(30):
         print(
             f"Epoch {epoch+1} training"
         )
