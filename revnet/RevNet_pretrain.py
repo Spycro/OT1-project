@@ -134,15 +134,8 @@ classifier_input_size = old_classifier.in_features
 assert(classifier_input_size == 512)
 
 model.fc = nn.Sequential(
-    nn.Dropout(p=0.5),
-    nn.Linear(in_features=512, out_features=256),
+    nn.Linear(in_features=512, out_features=4),
     nn.ReLU(),
-    nn.Dropout(p=0.5),
-    nn.Linear(in_features=256, out_features=128),
-    nn.ReLU(),
-    nn.Linear(in_features=128, out_features=16),
-    nn.ReLU(),
-    nn.Linear(in_features=16, out_features=4),
 )
 
 resnet = model.to(device)
