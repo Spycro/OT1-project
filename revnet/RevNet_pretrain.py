@@ -68,7 +68,7 @@ def generate_rotated_image_batch(batch_images):
 
 def train(model):
     criterion = CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
     for epoch in range(30):
         print(
@@ -138,7 +138,6 @@ model.fc = nn.Sequential(
     nn.ReLU(),
     nn.Dropout(0.5),
     nn.Linear(in_features=128, out_features=4),
-    nn.ReLU(),
 )
 
 resnet = model.to(device)
