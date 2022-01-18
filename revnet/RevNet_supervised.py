@@ -31,10 +31,13 @@ labeled_train_set = torchvision.datasets.STL10(root='./data', split='train', fol
 test_set = torchvision.datasets.STL10(root='./data', split='test', download=True, transform=transform)
 
 # Split train set into a train and validation sets
-labeled_train_size = int(0.80 * len(labeled_train_set))
-valid_size = len(labeled_train_set) - labeled_train_size
-train_set, valid_set = torch.utils.data.random_split(
-    labeled_train_set, [labeled_train_size, valid_size]
+labeled_train_size = int(0.48 * len(labeled_train_set))
+labeled_valid_size = int(0.60 * len(labeled_train_set)) - labeled_train_size
+remaining_size = len(labeled_train_set) - (labeled_train_size + labeled_valid_size)
+labeled_finetune_train_size = int(0.32 * remaining_size)
+labeled_finetune_valid_size = remaining_size - labeled_finetune_train_size
+train_set, valid_set, finetune_train_set, finetune_valid_set = torch.utils.data.random_split(
+    labeled_train_set, [labeled_train_size, labeled_valid_size, labeled_finetune_train_size, labeled_finetune_valid_size]
 )
 
 BATCH_SIZE = 64
@@ -42,10 +45,12 @@ BATCH_SIZE = 64
 train_dataloader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
 test_dataloader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
 valid_dataloader = DataLoader(valid_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
+finetune_train_dataloader = DataLoader(finetune_train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
+finetune_valid_dataloader = DataLoader(finetune_valid_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
 
 writer = SummaryWriter()
 
-def train(model):
+def train(model, train_dataloader, valid_dataloader, writer_prefix):
     criterion = CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
     for epoch in range(200):
@@ -84,8 +89,8 @@ def train(model):
 
         train_loss = train_loss / len(train_dataloader)
         valid_loss = valid_loss / len(valid_dataloader)
-        writer.add_scalar('Loss/train', train_loss, epoch)
-        writer.add_scalar('Validation/train', valid_loss, epoch)
+        writer.add_scalar(writer_prefix + '/Loss/train', train_loss, epoch)
+        writer.add_scalar(writer_prefix + '/Validation/train', valid_loss, epoch)
 
         print(
             f"- Accuracy {correct / total * 100}%"
@@ -99,6 +104,10 @@ def train(model):
 
 supervised_model = torch.load("pretrained_revnet.pth").to(device)
 
+# Freeze all layers except classifier
+for name, param in supervised_model.named_parameters():
+    param.requires_grad = False
+
 # Last layer size of ResNet should be 512
 supervised_model.fc = nn.Sequential(
                 nn.Dropout(p=0.5),
@@ -111,7 +120,15 @@ supervised_model.fc = nn.Sequential(
                 nn.ReLU(),
             ).to(device)
 
-print("Started training...")
-train(supervised_model)
+
+print("Started training in freezed model.")
+train(supervised_model, train_dataloader, valid_dataloader, 'Freezed')
+print("Started fine-tuning on model.")
+
+# Unfreeze all layers
+for name, param in supervised_model.named_parameters():
+    param.requires_grad = True
+
+train(supervised_model, finetune_train_dataloader, finetune_valid_dataloader, 'Finetune')
 print("Finished training")
 writer.close()
