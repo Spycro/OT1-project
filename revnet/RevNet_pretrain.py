@@ -68,8 +68,8 @@ def generate_rotated_image_batch(batch_images):
 def train(model):
     criterion = CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, 5, 0.9)
-    for epoch in range(15):
+    scheduler = optim.lr_scheduler.StepLR(optimizer, 20, 0.9)
+    for epoch in range(200):
         print(
             f"Epoch {epoch+1} training"
         )
@@ -93,19 +93,20 @@ def train(model):
         )
         valid_loss = 0.0
         model.eval()
-        for batch_images, _ in tqdm(valid_dataloader):
-            [images, targets] = generate_rotated_image_batch(batch_images)
+        with torch.no_grad():
+            for batch_images, _ in tqdm(valid_dataloader):
+                [images, targets] = generate_rotated_image_batch(batch_images)
 
-            images = images.to(device)
-            targets = targets.to(device)
+                images = images.to(device)
+                targets = targets.to(device)
 
-            y = model(images)
-            loss = criterion(y, targets)
-            valid_loss += loss.item()
+                y = model(images)
+                loss = criterion(y, targets)
+                valid_loss += loss.item()
 
-            _, predicted = torch.max(y.data, 1)
-            total += targets.size(0)
-            correct += (predicted == targets).sum().item()
+                _, predicted = torch.max(y.data, 1)
+                total += targets.size(0)
+                correct += (predicted == targets).sum().item()
 
         scheduler.step()
 
