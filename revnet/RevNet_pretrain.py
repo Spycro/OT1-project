@@ -15,13 +15,14 @@ print(f"Is CUDA supported by this system? {torch.cuda.is_available()}")
 print(f"CUDA version: {torch.version.cuda}")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-mean = torch.tensor([0.5, 0.5, 0.5], dtype=torch.float32)
-std = torch.tensor([0.5, 0.5, 0.5], dtype=torch.float32)
-
-normalize = transforms.Normalize(mean.tolist(), std.tolist())
-unnormalize = transforms.Normalize((-mean / std).tolist(), (1.0 / std).tolist())
-
-transform = transforms.Compose([transforms.ToTensor(), normalize])
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.RandomAutocontrast(),
+    transforms.RandomRotation(60),
+    transforms.RandomHorizontalFlip(),
+    transforms.RandomVerticalFlip(),
+    transforms.RandomResizedCrop((96, 96))
+])
 
 # Train data
 unlabeled_train_set = torchvision.datasets.STL10(root='./data', split='unlabeled', download=True, transform=transform)
@@ -47,46 +48,6 @@ writer = SummaryWriter()
 
 rotations_labels = [ 0, 90, 180, 270 ]
 
-class Model(nn.Module):
-    def __init__(self):
-        super(Model, self).__init__()
-
-        # AlexNet
-        # Image initiale de taille 96x96 avec 3 channels (r, g, b)
-        self.features = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=11, stride=4, padding=2),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-            nn.Conv2d(in_channels=64, out_channels=192, kernel_size=5, padding=2),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-            nn.Conv2d(in_channels=192, out_channels=384, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=384, out_channels=256, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-        )
-
-        self.classifier = nn.Sequential(
-            nn.Dropout(p=0.5),
-            nn.Linear(in_features=256 * 2 * 2, out_features=512),
-            nn.ReLU(),
-            nn.Dropout(p=0.5),
-            nn.Linear(in_features=512, out_features=128),
-            nn.ReLU(),
-            nn.Linear(in_features=128, out_features=16),
-            nn.ReLU(),
-            nn.Linear(in_features=16, out_features=4),
-        )
-
-    def forward(self, x):
-        x = self.features(x)
-        x = torch.flatten(x, 1)
-        x = self.classifier(x)
-        return x
-
 def generate_rotated_image_batch(batch_images):
 
     images = []
@@ -107,6 +68,7 @@ def generate_rotated_image_batch(batch_images):
 def train(model):
     criterion = CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, 5, 0.9)
     for epoch in range(15):
         print(
             f"Epoch {epoch+1} training"
@@ -145,6 +107,8 @@ def train(model):
             total += targets.size(0)
             correct += (predicted == targets).sum().item()
 
+        scheduler.step()
+
         train_loss = train_loss / len(train_dataloader)
         valid_loss = valid_loss / len(valid_dataloader)
         writer.add_scalar('Loss/train', train_loss, epoch)
@@ -161,7 +125,8 @@ def train(model):
         )
 
 print("Started training...")
-pretrained_model = Model().to(device)
+pretrained_model = torch.hub.load('pytorch/vision:v0.10.0', 'alexnet', pretrained=False).to(device)
+pretrained_model.fc = nn.Linear(512, 4).to(device)
 train(pretrained_model)
 torch.save(pretrained_model, "pretrained_revnet.pth")
 print("Finished training")
