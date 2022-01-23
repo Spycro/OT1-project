@@ -15,14 +15,10 @@ print(f"Is CUDA supported by this system? {torch.cuda.is_available()}")
 print(f"CUDA version: {torch.version.cuda}")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-transform = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.RandomAutocontrast(),
-    transforms.RandomRotation(60),
-    transforms.RandomHorizontalFlip(),
-    transforms.RandomVerticalFlip(),
-    transforms.RandomResizedCrop((96, 96))
-])
+mean = torch.tensor([0.5, 0.5, 0.5], dtype=torch.float32)
+std = torch.tensor([0.5, 0.5, 0.5], dtype=torch.float32)
+normalize = transforms.Normalize(mean.tolist(), std.tolist())
+transform = transforms.Compose([transforms.ToTensor(), normalize])
 
 # Train data
 unlabeled_train_set = torchvision.datasets.STL10(root='./data', split='unlabeled', download=True, transform=transform)
@@ -40,9 +36,9 @@ train_set, valid_set = torch.utils.data.random_split(
 
 BATCH_SIZE = 256
 
-train_dataloader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
-test_dataloader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
-valid_dataloader = DataLoader(valid_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
+train_dataloader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True)
+test_dataloader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True)
+valid_dataloader = DataLoader(valid_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=4, pin_memory=True)
 
 writer = SummaryWriter()
 
@@ -67,9 +63,8 @@ def generate_rotated_image_batch(batch_images):
 
 def train(model):
     criterion = CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.0001)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, 20, 0.9)
-    for epoch in range(200):
+    optimizer = optim.Adam(model.parameters(), lr=0.005)
+    for epoch in range(12):
         print(
             f"Epoch {epoch+1} training"
         )
@@ -108,8 +103,6 @@ def train(model):
                 total += targets.size(0)
                 correct += (predicted == targets).sum().item()
 
-        scheduler.step()
-
         train_loss = train_loss / len(train_dataloader)
         valid_loss = valid_loss / len(valid_dataloader)
         writer.add_scalar('Loss/train', train_loss, epoch)
@@ -125,9 +118,11 @@ def train(model):
             f"- Validation Loss: {valid_loss}"
         )
 
-print("Started training...")
+
 pretrained_model = torch.hub.load('pytorch/vision:v0.10.0', 'alexnet', pretrained=False).to(device)
 pretrained_model.fc = nn.Linear(512, 4).to(device)
+
+print("Started training...")
 train(pretrained_model)
 torch.save(pretrained_model, "pretrained_revnet.pth")
 print("Finished training")
