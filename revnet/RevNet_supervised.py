@@ -108,5 +108,6 @@ supervised_model.fc = nn.Linear(512, 10).to(device)
 
 print("Started training...")
 train(supervised_model)
+torch.save(supervised_model, "supervised_revnet.pth")
 print("Finished training")
 writer.close()
